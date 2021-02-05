@@ -1,0 +1,19 @@
+{
+    "name": "cloudflare-db",
+    "version": "1.0.0",
+    "description": "The low latency database powered by Cloudflare Worker and KV",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/cachecleanerjeet/CloudflareDB.git"
+    },
+    "keywords": [
+        "Cloudflare",
+        "Cloudflare-Worker"
+    ],
+    "author": "Tuhin Kanti Pal",
+    "license": "Apache-2.0",
+    "bugs": {
+        "url": "https://github.com/cachecleanerjeet/CloudflareDB/issues"
+    },
+    "homepage": "https://github.com/cachecleanerjeet/CloudflareDB#readme"
+}
