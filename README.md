@@ -7,7 +7,7 @@
 
 ### *Features :*
 - Globally Available
-- Lowest Latancy
+- Lowest Latency
 - Serverless
 - Rest API
 - Token Based Authenticated Request Support
@@ -100,7 +100,7 @@ URL (Not Secured): https://<your-app>.workers.dev/<_id>
 - You just made your Cloudflare DB, Now Read the API Endpoint and use it in your Project 😪
 
 ### *Secure with Token :*
-*You can impliment token based authentication system for POST and DELETE requests*
+*You can implement token based authentication system for POST and DELETE requests*
 
 - Write your key in <code>POSTKEY</code> to secure POST requests with a Token (Line No: 12)
 - Write your key in <code>DELETEKEY</code> to secure DELETE requests with a Token (Line No: 13)
