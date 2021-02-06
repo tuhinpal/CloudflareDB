@@ -110,7 +110,7 @@ async function handleRequest(request) {
                     headers
                 })
             } else {
-                var test = await TUHIN.delete(path.replace('/', ''))
+                await TUHIN.delete(path.replace('/', ''))
                 return new Response(JSON.stringify({
                     status: true,
                     msg: "Deleted Successfully"
