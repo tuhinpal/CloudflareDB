@@ -1,148 +1,163 @@
-/*
- Project-Name: Cloudflare DB
- Author: Tuhin Kanti Pal
- Author's Github: https://github.com/cachecleanerjeet
- Author's Email: me@thetuhin.com
- LICENSE: Apache-2.0 
- Note for Kangers: Changing author's name will not make you a developer
- Contact: https://telegram.dog/t_projects
- Channel: https://telegram.dog/tprojects
-*/
+/** @type {any} Your Key to secure POST requests with a token. null if allowed */
+const POSTKEY = null;
 
-const POSTKEY = null; // "your-key" to secure POST requests with a token
-const DELETEKEY = null; // "your-key" to secure DELETE requests with a token
+/** @type {any} Your Key to secure DELETE requests with a token. null if allowed */
+const DELETEKEY = null;
 
+/** You can edit this variable to change KV Name Binding */
+const KV_NAMESPACE = TUHIN;
+
+/**
+ * Handle the request
+ * @param {Request} request
+ */
 async function handleRequest(request) {
+  try {
+    /** @type {string} Hostname of the worker */
+    const host = request.headers.get("host");
 
-    const headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*",
-        "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-        "Access-Control-Max-Age": "86400",
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Your-IP": request.headers.get("cf-connecting-ip"),
-        "Your-Country": request.headers.get("CF-IPCountry"),
-        "Host": request.headers.get("host"),
-        "Made-By": atob('VHVoaW4gS2FudGkgUGFsLCBodHRwczovL2dpdGh1Yi5jb20vY2FjaGVjbGVhbmVyamVldA==')
+    /** @type {string} Path of the request */
+    const path = new URL(request.url).pathname;
+
+    /**
+     * Handle the request
+     * @param {string} key Key to be searched from URL param
+     * @return {string} Value of the key
+     */
+    function getUrlParam(key) {
+      return new URL(request.url).searchParams.get(key);
     }
 
-    if (request.method == "OPTIONS") { // Handel Preflight Requests
-        return new Response(null, {
-            status: 200,
-            headers
-        })
+    switch (request.method) {
+      case "OPTIONS": {
+        /**  Handle Preflight */
+        return jsonResponse({
+          data: { msg: "Preflight request success 🤝" },
+        });
+      }
+      case "POST": {
+        /**  Handle POST */
+        if (POSTKEY && getUrlParam("key") !== POSTKEY) {
+          /**  Unauthorized */
+          return jsonResponse({
+            data: { status: false, msg: "Invalid key, Unauthorized!" },
+            status: 403,
+          });
+        } else {
+          /**  Authorized to save payload */
 
-    } else if (request.method == "POST") { // Insert a JSON Payload
-        if (new URL(request.url).searchParams.get('key') !== POSTKEY && POSTKEY !== null) {
-            return new Response(JSON.stringify({
+          /** @type {object} Request payload */
+          var payload = await request.json();
+
+          /** @type {object} Save and return payload */
+          var save = await savePayload(payload);
+
+          /**  Send response */
+          return jsonResponse({
+            data: {
+              status: true,
+              _id: save._id,
+              query: `https://${host}/${save._id}`,
+              data: save,
+            },
+          });
+        }
+      }
+      case "GET": {
+        /**  Handle GET */
+
+        if (path === "/") {
+          return jsonResponse({
+            data: {
+              status: "Running",
+            },
+          });
+        } else {
+          /** @type {object} Retrive payload from ID */
+          var getData = await KV_NAMESPACE.get(path.substring(1));
+          if (getData) {
+            return jsonResponse({
+              data: JSON.parse(getData),
+            });
+          } else {
+            return jsonResponse({
+              data: {
                 status: false,
-                msg: "Unauthorized"
-            }), {
-                status: 401,
-                headers
-            })
-        } else {
-            var setpayload = await request.json()
-            if (setpayload._id == undefined) {
-                var keyid = (await (await fetch('https://time.akamai.com/')).text()) + Math.random().toString(36).substring(9)
-            } else {
-                var keyid = setpayload._id
-            }
-            await TUHIN.put(keyid, JSON.stringify(setpayload))
-            return new Response(JSON.stringify({
-                status: true,
-                _id: keyid,
-                query: `https://${request.headers.get("host")}/${keyid}`,
-                data: setpayload
-            }), {
-                status: 200,
-                headers
-            })
+                msg: "Not Found",
+              },
+              status: 404,
+            });
+          }
         }
-    } else if (request.method == "GET") { // Get a JSON Data
-        var path = new URL(request.url).pathname
-        if (path == "/") {
-            return new Response(JSON.stringify({
-                status: "Running"
-            }), {
-                status: 200,
-                headers
-            })
+      }
+      case "DELETE": {
+        if (DELETEKEY && getUrlParam("key") !== DELETEKEY) {
+          /**  Unauthorized */
+          return jsonResponse({
+            data: { status: false, msg: "Invalid key, Unauthorized!" },
+            status: 403,
+          });
         } else {
-            var keyid = path.replace('/', '')
-            var getpayload = await TUHIN.get(keyid)
-            if (getpayload == null) {
-                return new Response(JSON.stringify({
-                    status: false,
-                    message: "Not Found"
-                }), {
-                    status: 200,
-                    headers
-                })
-            } else {
-                return new Response(JSON.stringify({
-                    status: true,
-                    _id: keyid,
-                    data: JSON.parse(getpayload)
-                }), {
-                    status: 200,
-                    headers
-                })
-            }
+          /**  Authorized to delete payload */
+
+          await KV_NAMESPACE.delete(path.substring(1));
+          return jsonResponse({
+            data: {
+              status: true,
+              msg: "Deleted Successfully",
+            },
+          });
         }
-    } else if (request.method == "DELETE") { // Delete a Document
-        if (new URL(request.url).searchParams.get('key') !== DELETEKEY && DELETEKEY !== null) {
-            return new Response(JSON.stringify({
-                status: false,
-                msg: "Unauthorized"
-            }), {
-                status: 401,
-                headers
-            })
-        } else {
-            var path = new URL(request.url).pathname;
-            if (path == '/') {
-                return new Response(JSON.stringify({
-                    status: false,
-                    message: "Can't Delete /"
-                }), {
-                    status: 500,
-                    headers
-                })
-            } else {
-                await TUHIN.delete(path.replace('/', ''))
-                return new Response(JSON.stringify({
-                    status: true,
-                    msg: "Deleted Successfully"
-                }), {
-                    status: 200,
-                    headers
-                })
-            }
-        }
-    } else {
-        return new Response(JSON.stringify({
-            status: false,
-            message: "Only supports GET, POST, DELETE, OPTIONS"
-        }), {
-            status: 500,
-            headers
-        })
+      }
+      default: {
+        /**  Handle unknown request */
+        throw new Error("Invalid request method");
+      }
     }
+  } catch (error) {
+    return jsonResponse({
+      data: { status: false, msg: error.message },
+      status: 500,
+    });
+  }
 }
 
-addEventListener('fetch', event => {
-    event.respondWith(handleRequest(event.request))
-})
+/**
+ * Send a JSON response to the client
+ *
+ * @param {object} obj - Response
+ * @param {any} obj.data - Body of the response
+ * @param {number} obj.status - Status code of the response
+ * @param {object} obj.headers - Headers of the response
+ * @returns {Response}
+ */
+function jsonResponse({ data = null, status = 200, headers = {} }) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+      "Access-Control-Max-Age": "86400",
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      ...headers,
+    },
+  });
+}
 
-/*
- Project-Name: Cloudflare DB
- Author: Tuhin Kanti Pal
- Author's Github: https://github.com/cachecleanerjeet
- Author's Email: me@thetuhin.com
- LICENSE: Apache-2.0
- Note for Kangers: Changing author's name will not make you a developer
- Contact: https://telegram.dog/t_projects
- Channel: https://telegram.dog/tprojects
-*/
+/**
+ * Send a JSON response to the client
+ *
+ * @param {Object} payload - Payload to be saved
+ */
+async function savePayload(payload) {
+  if (!payload._id)
+    payload._id =
+      new Date().getTime() + Math.random().toString(36).substring(9);
+  await KV_NAMESPACE.put(payload._id, JSON.stringify(payload));
+  return payload;
+}
+
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
